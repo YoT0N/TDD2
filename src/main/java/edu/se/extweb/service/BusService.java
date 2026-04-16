@@ -96,10 +96,8 @@ public class BusService {
 
     //-------------------------  response impl ------------------------------
 
-    /**
-     * Returns all buses wrapped in an ApiResponse.
-     * Meta will always be success=true with code 200.
-     */
+    // Повертає всі автобуси, обгорнуті в ApiResponse.
+    // Мета-дані завжди будуть success=true з кодом 200.
     public ApiResponse<BaseMetaData, Bus> getAllAsApiResponse() {
         List<Bus> buses = busRepository.findAll();
         BaseMetaData meta = BaseMetaData.builder()
@@ -112,10 +110,8 @@ public class BusService {
                 .build();
     }
 
-    /**
-     * Returns a single bus by id wrapped in an ApiResponse.
-     * If the bus does not exist, returns a 404 error response.
-     */
+    // Повертає один автобус за ідентифікатором, обгорнутий в ApiResponse.
+    // Якщо автобус не існує, повертається помилка 404.
     public ApiResponse<BaseMetaData, Bus> getByIdAsApiResponse(String id) {
         Bus persisted = busRepository.findById(id).orElse(null);
         if (persisted != null) {
@@ -133,9 +129,7 @@ public class BusService {
         return new ApiResponse<>(errorMeta);
     }
 
-    /**
-     * Creates a bus from a raw Bus object and returns it wrapped in an ApiResponse.
-     */
+    // Створює автобус з об'єкта Bus і повертає його, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> createAsApiResponse(Bus bus) {
         try {
             Bus saved = busRepository.save(bus);
@@ -154,9 +148,7 @@ public class BusService {
         }
     }
 
-    /**
-     * Creates a bus from a BusCreateRequest DTO and returns it wrapped in an ApiResponse.
-     */
+    // Створює автобус з DTO BusCreateRequest і повертає його, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> createAsApiResponse(BusCreateRequest request) {
         try {
             Bus saved = busRepository.save(
@@ -177,9 +169,7 @@ public class BusService {
         }
     }
 
-    /**
-     * Updates a bus from a raw Bus object and returns the updated bus wrapped in an ApiResponse.
-     */
+    // Оновлює автобус з об'єкта Bus і повертає оновлений автобус, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> updateAsApiResponse(Bus bus) {
         boolean exists = busRepository.existsById(bus.getId());
         if (!exists) {
@@ -198,9 +188,7 @@ public class BusService {
         return new ApiResponse<>(meta, updated);
     }
 
-    /**
-     * Updates a bus from a BusUpdateRequest DTO and returns the updated bus wrapped in an ApiResponse.
-     */
+    // Оновлює автобус з DTO BusUpdateRequest і повертає оновлений автобус, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> updateAsApiResponse(BusUpdateRequest request) {
         Bus persisted = busRepository.findById(request.id()).orElse(null);
         if (persisted == null) {
