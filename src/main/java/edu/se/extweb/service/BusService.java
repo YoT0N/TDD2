@@ -3,12 +3,15 @@ package edu.se.extweb.service;
 import edu.se.extweb.model.Bus;
 import edu.se.extweb.repository.BusRepository;
 import edu.se.extweb.request.BusCreateRequest;
+import edu.se.extweb.request.BusPageRequest;
 import edu.se.extweb.request.BusUpdateRequest;
 import edu.se.extweb.response.ApiResponse;
 import edu.se.extweb.response.BaseMetaData;
+import edu.se.extweb.response.PaginationMetaData;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -31,7 +34,6 @@ public class BusService {
         initialBuses.add(new Bus("Scania", "104", "Shopping Mall"));
         initialBuses.add(new Bus("Mercedes", "105", "Hospital"));
         initialBuses.add(new Bus("Volvo", "106", "Train Station"));
-        //initialBuses.add(new Bus("MAN", "107", "City Park"));
     }
 
     @PostConstruct
@@ -52,7 +54,7 @@ public class BusService {
     }
 
     public Bus getById(String id) {
-        return busRepository.findById(id).get();
+        return busRepository.findById(id).orElse(null);
     }
 
     public Bus create(Bus bus) {
@@ -93,11 +95,8 @@ public class BusService {
         busRepository.deleteAll();
     }
 
+    // ─── ApiResponse методи ───────────────────────────────────────────────────
 
-    //-------------------------  response impl ------------------------------
-
-    // Повертає всі автобуси, обгорнуті в ApiResponse.
-    // Мета-дані завжди будуть success=true з кодом 200.
     public ApiResponse<BaseMetaData, Bus> getAllAsApiResponse() {
         List<Bus> buses = busRepository.findAll();
         BaseMetaData meta = BaseMetaData.builder()
@@ -110,8 +109,6 @@ public class BusService {
                 .build();
     }
 
-    // Повертає один автобус за ідентифікатором, обгорнутий в ApiResponse.
-    // Якщо автобус не існує, повертається помилка 404.
     public ApiResponse<BaseMetaData, Bus> getByIdAsApiResponse(String id) {
         Bus persisted = busRepository.findById(id).orElse(null);
         if (persisted != null) {
@@ -126,10 +123,11 @@ public class BusService {
                 .success(false)
                 .errorMessage("Bus with id '" + id + "' not found")
                 .build();
-        return new ApiResponse<>(errorMeta);
+        ApiResponse<BaseMetaData, Bus> response = new ApiResponse<>(errorMeta);
+        response.setData(new ArrayList<>());
+        return response;
     }
 
-    // Створює автобус з об'єкта Bus і повертає його, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> createAsApiResponse(Bus bus) {
         try {
             Bus saved = busRepository.save(bus);
@@ -148,7 +146,6 @@ public class BusService {
         }
     }
 
-    // Створює автобус з DTO BusCreateRequest і повертає його, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> createAsApiResponse(BusCreateRequest request) {
         try {
             Bus saved = busRepository.save(
@@ -169,7 +166,6 @@ public class BusService {
         }
     }
 
-    // Оновлює автобус з об'єкта Bus і повертає оновлений автобус, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> updateAsApiResponse(Bus bus) {
         boolean exists = busRepository.existsById(bus.getId());
         if (!exists) {
@@ -178,7 +174,9 @@ public class BusService {
                     .success(false)
                     .errorMessage("Bus with id '" + bus.getId() + "' not found")
                     .build();
-            return new ApiResponse<>(errorMeta);
+            ApiResponse<BaseMetaData, Bus> response = new ApiResponse<>(errorMeta);
+            response.setData(new ArrayList<>());
+            return response;
         }
         Bus updated = busRepository.save(bus);
         BaseMetaData meta = BaseMetaData.builder()
@@ -188,7 +186,6 @@ public class BusService {
         return new ApiResponse<>(meta, updated);
     }
 
-    // Оновлює автобус з DTO BusUpdateRequest і повертає оновлений автобус, обгорнутий в ApiResponse.
     public ApiResponse<BaseMetaData, Bus> updateAsApiResponse(BusUpdateRequest request) {
         Bus persisted = busRepository.findById(request.id()).orElse(null);
         if (persisted == null) {
@@ -197,7 +194,9 @@ public class BusService {
                     .success(false)
                     .errorMessage("Bus with id '" + request.id() + "' not found")
                     .build();
-            return new ApiResponse<>(errorMeta);
+            ApiResponse<BaseMetaData, Bus> response = new ApiResponse<>(errorMeta);
+            response.setData(new ArrayList<>());
+            return response;
         }
         Bus toUpdate = Bus.builder()
                 .id(request.id())
@@ -211,5 +210,67 @@ public class BusService {
                 .success(true)
                 .build();
         return new ApiResponse<>(meta, updated);
+    }
+
+    // ─── Пагінація ────────────────────────────────────────────────────────────
+
+    public ApiResponse<PaginationMetaData, Bus> getBusesPage(BusPageRequest request) {
+        List<Bus> all = busRepository.findAll();
+        if (all.isEmpty()) {
+            PaginationMetaData meta = PaginationMetaData.builder()
+                    .code(200)
+                    .success(true)
+                    .errorMessage("No buses found in the database")
+                    .number(0)
+                    .size(request.size())
+                    .totalElements(0)
+                    .totalPages(0)
+                    .isFirst(true)
+                    .isLast(true)
+                    .build();
+            ApiResponse<PaginationMetaData, Bus> response = new ApiResponse<>(meta);
+            response.setData(new ArrayList<>());
+            return response;
+        }
+
+        int totalElements = (int) busRepository.count();
+        int totalPages = (int) Math.ceil((double) totalElements / request.size());
+
+        if (request.page() >= totalPages) {
+            PaginationMetaData meta = PaginationMetaData.builder()
+                    .code(400)
+                    .success(false)
+                    .errorMessage("Page index " + request.page() + " is out of range. Total pages: " + totalPages)
+                    .number(request.page())
+                    .size(request.size())
+                    .totalElements(totalElements)
+                    .totalPages(totalPages)
+                    .isFirst(false)
+                    .isLast(false)
+                    .build();
+            ApiResponse<PaginationMetaData, Bus> response = new ApiResponse<>(meta);
+            response.setData(new ArrayList<>());
+            return response;
+        }
+
+        Pageable pageable = PageRequest.of(request.page(), request.size(),
+                Sort.by(Sort.Direction.ASC, "id"));
+        Page<Bus> page = busRepository.findAll(pageable);
+
+        PaginationMetaData meta = PaginationMetaData.builder()
+                .code(200)
+                .success(true)
+                .number(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .isFirst(page.isFirst())
+                .isLast(page.isLast())
+                .build();
+
+        return ApiResponse.<PaginationMetaData, Bus>builder()
+                .meta(meta)
+                .data(page.getContent())
+                .build();
     }
 }
